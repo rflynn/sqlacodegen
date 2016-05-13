@@ -214,7 +214,10 @@ class ManyToOneRelationship(Relationship):
     def __init__(self, source_cls, target_cls, constraint, inflect_engine):
         super(ManyToOneRelationship, self).__init__(source_cls, target_cls)
 
-        colname = constraint.columns[0]
+        try:
+            colname = constraint.columns[0]
+        except:
+            colname = constraint.columns.items()[0][0] # fuck you for wasting my time, sqlalchemy 1.x
         tablename = constraint.elements[0].column.table.name
         if not colname.endswith('_id'):
             self.preferred_name = inflect_engine.singular_noun(tablename) or tablename
@@ -237,7 +240,11 @@ class ManyToOneRelationship(Relationship):
         # SQLAlchemy needs an explicit primaryjoin to figure out which column(s) to join with
         common_fk_constraints = _get_common_fk_constraints(constraint.table, constraint.elements[0].column.table)
         if len(common_fk_constraints) > 1:
-            self.kwargs['primaryjoin'] = "'{0}.{1} == {2}.{3}'".format(source_cls, constraint.columns[0], target_cls,
+            try:
+                col0 = constraint.columns[0]
+            except: # fuck you sqlalchemy 1.x
+                col0 = constraint.columns.items()[0]
+            self.kwargs['primaryjoin'] = "'{0}.{1} == {2}.{3}'".format(source_cls, col0, target_cls,
                                                                        constraint.elements[0].column.name)
 
 
@@ -248,7 +255,10 @@ class ManyToManyRelationship(Relationship):
         self.kwargs['secondary'] = repr(assocation_table.name)
         constraints = [c for c in assocation_table.constraints if isinstance(c, ForeignKeyConstraint)]
         constraints.sort(key=_get_constraint_sort_key)
-        colname = constraints[1].columns[0]
+        try:
+            colname = constraints[1].columns[0]
+        except:
+            colname = constraints[1].columns.items()[0][0] # fuck you for wasting my time, sqlalchemy 1.x
         tablename = constraints[1].elements[0].column.table.name
         self.preferred_name = tablename if not colname.endswith('_id') else colname[:-3] + 's'
 
