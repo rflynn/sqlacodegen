@@ -42,7 +42,8 @@ setup(
     ],
     install_requires=(
         'SQLAlchemy >= 0.6.0',
-        'inflect >= 0.2.0'
+        'inflect >= 0.2.0',
+        'nose==1.3.7',
     ),
     extras_require={
         ':python_version == "2.6"': ['argparse']

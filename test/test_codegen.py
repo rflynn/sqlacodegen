@@ -3,6 +3,9 @@ from io import StringIO
 import sys
 import re
 
+from nose.tools import assert_equal
+assert_equal.__self__.maxDiff = None # print diff on assertion failure
+
 from sqlalchemy.engine import create_engine
 from sqlalchemy.schema import (MetaData, Table, Column, CheckConstraint, UniqueConstraint, Index, ForeignKey,
                                ForeignKeyConstraint)
@@ -42,7 +45,7 @@ class TestModelGenerator(object):
             Column('number', NUMERIC(10, asdecimal=False)),
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Boolean, Column, Enum, MetaData, Numeric, Table
 
@@ -55,7 +58,7 @@ t_simple_items = Table(
     Column('bool', Boolean),
     Column('number', Numeric(10, asdecimal=False))
 )
-"""
+""")
 
     def test_boolean_detection(self):
         Table(
@@ -68,7 +71,7 @@ t_simple_items = Table(
             CheckConstraint('simple_items.bool3 IN (0, 1)')
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Boolean, Column, MetaData, Table
 
@@ -81,7 +84,7 @@ t_simple_items = Table(
     Column('bool2', Boolean),
     Column('bool3', Boolean)
 )
-"""
+""")
 
     def test_enum_detection(self):
         Table(
@@ -90,7 +93,7 @@ t_simple_items = Table(
             CheckConstraint(r"simple_items.enum IN ('A', '\'B', 'C')")
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, Enum, MetaData, Table
 
@@ -101,7 +104,7 @@ t_simple_items = Table(
     'simple_items', metadata,
     Column('enum', Enum('A', "\\\\'B", 'C'))
 )
-"""
+""")
 
     def test_column_adaptation(self):
         Table(
@@ -110,7 +113,7 @@ t_simple_items = Table(
             Column('length', DOUBLE_PRECISION)
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import BigInteger, Column, Float, MetaData, Table
 
@@ -122,7 +125,7 @@ t_simple_items = Table(
     Column('id', BigInteger),
     Column('length', Float)
 )
-"""
+""")
 
     def test_mysql_column_types(self):
         Table(
@@ -131,7 +134,7 @@ t_simple_items = Table(
             Column('name', mysql.VARCHAR(255))
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, Integer, MetaData, String, Table
 
@@ -143,7 +146,7 @@ t_simple_items = Table(
     Column('id', Integer),
     Column('name', String(255))
 )
-"""
+""")
 
     def test_constraints_table(self):
         Table(
@@ -154,7 +157,7 @@ t_simple_items = Table(
             UniqueConstraint('id', 'number')
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import CheckConstraint, Column, Integer, MetaData, Table, UniqueConstraint
 
@@ -168,7 +171,7 @@ t_simple_items = Table(
     CheckConstraint('number > 0'),
     UniqueConstraint('id', 'number')
 )
-"""
+""")
 
     def test_constraints_class(self):
         Table(
@@ -179,7 +182,7 @@ t_simple_items = Table(
             UniqueConstraint('id', 'number')
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import CheckConstraint, Column, Integer, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
@@ -197,7 +200,7 @@ class SimpleItem(Base):
 
     id = Column(Integer, primary_key=True)
     number = Column(Integer)
-"""
+""")
 
     def test_noindexes_table(self):
         simple_items = Table(
@@ -207,7 +210,7 @@ class SimpleItem(Base):
         )
         simple_items.indexes.add(Index('idx_number', simple_items.c.number))
 
-        assert self.generate_code(noindexes=True) == """\
+        assert_equal(self.generate_code(noindexes=True), """\
 # coding: utf-8
 from sqlalchemy import CheckConstraint, Column, Integer, MetaData, Table
 
@@ -219,7 +222,7 @@ t_simple_items = Table(
     Column('number', Integer),
     CheckConstraint('number > 2')
 )
-"""
+""")
 
     def test_noconstraints_table(self):
         simple_items = Table(
@@ -229,7 +232,7 @@ t_simple_items = Table(
         )
         simple_items.indexes.add(Index('idx_number', simple_items.c.number))
 
-        assert self.generate_code(noconstraints=True) == """\
+        assert_equal(self.generate_code(noconstraints=True), """\
 # coding: utf-8
 from sqlalchemy import Column, Integer, MetaData, Table
 
@@ -240,7 +243,7 @@ t_simple_items = Table(
     'simple_items', metadata,
     Column('number', Integer, index=True)
 )
-"""
+""")
 
     def test_indexes_table(self):
         simple_items = Table(
@@ -253,7 +256,7 @@ t_simple_items = Table(
         simple_items.indexes.add(Index('idx_text_number', simple_items.c.text, simple_items.c.number, unique=True))
         simple_items.indexes.add(Index('idx_text', simple_items.c.text, unique=True))
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, Index, Integer, MetaData, String, Table
 
@@ -267,7 +270,7 @@ t_simple_items = Table(
     Column('text', String, unique=True),
     Index('idx_text_number', 'text', 'number', unique=True)
 )
-"""
+""")
 
     def test_indexes_class(self):
         simple_items = Table(
@@ -280,7 +283,7 @@ t_simple_items = Table(
         simple_items.indexes.add(Index('idx_text_number', simple_items.c.text, simple_items.c.number))
         simple_items.indexes.add(Index('idx_text', simple_items.c.text, unique=True))
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, Index, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
@@ -298,7 +301,7 @@ class SimpleItem(Base):
     id = Column(Integer, primary_key=True)
     number = Column(Integer, index=True)
     text = Column(String, unique=True)
-"""
+""")
 
     def test_onetomany(self):
         Table(
@@ -312,7 +315,7 @@ class SimpleItem(Base):
             Column('id', INTEGER, primary_key=True)
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, ForeignKey, Integer
 from sqlalchemy.orm import relationship
@@ -335,7 +338,7 @@ class SimpleItem(Base):
     container_id = Column(ForeignKey('simple_containers.id'))
 
     container = relationship('SimpleContainer')
-"""
+""")
 
     def test_onetomany_selfref(self):
         Table(
@@ -345,7 +348,7 @@ class SimpleItem(Base):
             ForeignKeyConstraint(['parent_item_id'], ['simple_items.id'])
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, ForeignKey, Integer
 from sqlalchemy.orm import relationship
@@ -362,7 +365,7 @@ class SimpleItem(Base):
     parent_item_id = Column(ForeignKey('simple_items.id'))
 
     parent_item = relationship('SimpleItem', remote_side=[id])
-"""
+""")
 
     def test_onetomany_selfref_multi(self):
         Table(
@@ -374,7 +377,7 @@ class SimpleItem(Base):
             ForeignKeyConstraint(['top_item_id'], ['simple_items.id'])
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, ForeignKey, Integer
 from sqlalchemy.orm import relationship
@@ -393,7 +396,7 @@ class SimpleItem(Base):
 
     parent_item = relationship('SimpleItem', remote_side=[id], primaryjoin='SimpleItem.parent_item_id == SimpleItem.id')
     top_item = relationship('SimpleItem', remote_side=[id], primaryjoin='SimpleItem.top_item_id == SimpleItem.id')
-"""
+""")
 
     def test_onetomany_composite(self):
         Table(
@@ -410,7 +413,7 @@ class SimpleItem(Base):
             Column('id2', INTEGER, primary_key=True)
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, ForeignKeyConstraint, Integer
 from sqlalchemy.orm import relationship
@@ -439,7 +442,7 @@ ondelete='CASCADE', onupdate='CASCADE'),
     container_id2 = Column(Integer)
 
     simple_container = relationship('SimpleContainer')
-"""
+""")
 
     def test_onetomany_multiref(self):
         Table(
@@ -455,7 +458,7 @@ ondelete='CASCADE', onupdate='CASCADE'),
             Column('id', INTEGER, primary_key=True)
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, ForeignKey, Integer
 from sqlalchemy.orm import relationship
@@ -481,7 +484,7 @@ class SimpleItem(Base):
     parent_container = relationship('SimpleContainer', \
 primaryjoin='SimpleItem.parent_container_id == SimpleContainer.id')
     top_container = relationship('SimpleContainer', primaryjoin='SimpleItem.top_container_id == SimpleContainer.id')
-"""
+""")
 
     def test_onetoone(self):
         Table(
@@ -496,7 +499,7 @@ primaryjoin='SimpleItem.parent_container_id == SimpleContainer.id')
             Column('id', INTEGER, primary_key=True)
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, ForeignKey, Integer
 from sqlalchemy.orm import relationship
@@ -519,7 +522,7 @@ class SimpleItem(Base):
     other_item_id = Column(ForeignKey('other_items.id'), unique=True)
 
     other_item = relationship('OtherItem', uselist=False)
-"""
+""")
 
     def test_onetomany_noinflect(self):
         Table(
@@ -533,7 +536,7 @@ class SimpleItem(Base):
             Column('id', INTEGER, primary_key=True)
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, ForeignKey, Integer
 from sqlalchemy.orm import relationship
@@ -556,7 +559,7 @@ class Oglkrogk(Base):
     fehwiuhfiwID = Column(ForeignKey('fehwiuhfiw.id'))
 
     fehwiuhfiw = relationship('Fehwiuhfiw')
-"""
+""")
 
     def test_manytomany(self):
         Table(
@@ -575,7 +578,7 @@ class Oglkrogk(Base):
             ForeignKeyConstraint(['container_id'], ['simple_containers.id'])
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, ForeignKey, Integer, Table
 from sqlalchemy.orm import relationship
@@ -604,7 +607,7 @@ class SimpleItem(Base):
     __tablename__ = 'simple_items'
 
     id = Column(Integer, primary_key=True)
-"""
+""")
 
     def test_manytomany_selfref(self):
         Table(
@@ -619,7 +622,7 @@ class SimpleItem(Base):
             ForeignKeyConstraint(['child_id'], ['simple_items.id'])
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, ForeignKey, Integer, Table
 from sqlalchemy.orm import relationship
@@ -647,7 +650,7 @@ class SimpleItem(Base):
         primaryjoin='SimpleItem.id == child_items.c.child_id',
         secondaryjoin='SimpleItem.id == child_items.c.parent_id'
     )
-"""
+""")
 
     def test_manytomany_composite(self):
         Table(
@@ -670,7 +673,7 @@ class SimpleItem(Base):
             ForeignKeyConstraint(['container_id1', 'container_id2'], ['simple_containers.id1', 'simple_containers.id2'])
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, ForeignKeyConstraint, Integer, Table
 from sqlalchemy.orm import relationship
@@ -705,7 +708,7 @@ class SimpleItem(Base):
 
     id1 = Column(Integer, primary_key=True, nullable=False)
     id2 = Column(Integer, primary_key=True, nullable=False)
-"""
+""")
 
     def test_joined_inheritance(self):
         Table(
@@ -726,7 +729,7 @@ class SimpleItem(Base):
             ForeignKeyConstraint(['super_item_id'], ['simple_super_items.id'])
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, ForeignKey, Integer
 from sqlalchemy.ext.declarative import declarative_base
@@ -754,7 +757,7 @@ class SimpleSubItem(SimpleItem):
 
     simple_items_id = Column(ForeignKey('simple_items.super_item_id'), primary_key=True)
     data3 = Column(Integer)
-"""
+""")
 
     def test_no_inflect(self):
         Table(
@@ -762,7 +765,7 @@ class SimpleSubItem(SimpleItem):
             Column('id', INTEGER, primary_key=True)
         )
 
-        assert self.generate_code(noinflect=True) == """\
+        assert_equal(self.generate_code(noinflect=True), """\
 # coding: utf-8
 from sqlalchemy import Column, Integer
 from sqlalchemy.ext.declarative import declarative_base
@@ -775,7 +778,7 @@ class SimpleItems(Base):
     __tablename__ = 'simple_items'
 
     id = Column(Integer, primary_key=True)
-"""
+""")
 
     def test_no_classes(self):
         Table(
@@ -783,7 +786,7 @@ class SimpleItems(Base):
             Column('id', INTEGER, primary_key=True)
         )
 
-        assert self.generate_code(noclasses=True) == """\
+        assert_equal(self.generate_code(noclasses=True), """\
 # coding: utf-8
 from sqlalchemy import Column, Integer, MetaData, Table
 
@@ -794,7 +797,7 @@ t_simple_items = Table(
     'simple_items', metadata,
     Column('id', Integer, primary_key=True)
 )
-"""
+""")
 
     def test_table_kwargs(self):
         Table(
@@ -803,7 +806,7 @@ t_simple_items = Table(
             schema='testschema'
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, Integer
 from sqlalchemy.ext.declarative import declarative_base
@@ -817,7 +820,7 @@ class SimpleItem(Base):
     __table_args__ = {'schema': 'testschema'}
 
     id = Column(Integer, primary_key=True)
-"""
+""")
 
     def test_table_args_kwargs(self):
         simple_items = Table(
@@ -828,7 +831,7 @@ class SimpleItem(Base):
         )
         simple_items.indexes.add(Index('testidx', simple_items.c.id, simple_items.c.name))
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, Index, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
@@ -846,7 +849,7 @@ class SimpleItem(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String)
-"""
+""")
 
     def test_schema_table(self):
         Table(
@@ -855,7 +858,7 @@ class SimpleItem(Base):
             schema='testschema'
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, MetaData, String, Table
 
@@ -867,7 +870,7 @@ t_simple_items = Table(
     Column('name', String),
     schema='testschema'
 )
-"""
+""")
 
     def test_schema_boolean(self):
         Table(
@@ -877,7 +880,7 @@ t_simple_items = Table(
             schema='testschema'
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Boolean, Column, MetaData, Table
 
@@ -889,7 +892,7 @@ t_simple_items = Table(
     Column('bool1', Boolean),
     schema='testschema'
 )
-"""
+""")
 
     def test_foreign_key_options(self):
         Table(
@@ -898,7 +901,7 @@ t_simple_items = Table(
                                                deferrable=True, initially='DEFERRED'))
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, ForeignKey, MetaData, String, Table
 
@@ -910,7 +913,7 @@ t_simple_items = Table(
     Column('name', String, ForeignKey('simple_items.name', ondelete='CASCADE', onupdate='CASCADE', \
 deferrable=True, initially='DEFERRED'))
 )
-"""
+""")
 
     def test_foreign_key_schema(self):
         Table(
@@ -925,7 +928,7 @@ deferrable=True, initially='DEFERRED'))
             schema='otherschema'
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, ForeignKey, Integer
 from sqlalchemy.orm import relationship
@@ -949,7 +952,7 @@ class OtherItem(Base):
     __table_args__ = {'schema': 'otherschema'}
 
     id = Column(Integer, primary_key=True)
-"""
+""")
 
     def test_pk_default(self):
         Table(
@@ -957,7 +960,7 @@ class OtherItem(Base):
             Column('id', INTEGER, primary_key=True, server_default=text('uuid_generate_v4()'))
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, Integer, text
 from sqlalchemy.ext.declarative import declarative_base
@@ -970,7 +973,7 @@ class SimpleItem(Base):
     __tablename__ = 'simple_items'
 
     id = Column(Integer, primary_key=True, server_default=text("uuid_generate_v4()"))
-"""
+""")
 
     def test_server_default_multiline(self):
         Table(
@@ -981,7 +984,7 @@ class SimpleItem(Base):
 something()"""))
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, Integer, text
 from sqlalchemy.ext.declarative import declarative_base
@@ -997,7 +1000,7 @@ class SimpleItem(Base):
 /*Comment*/
 /*Next line*/
 something()\"""))
-"""
+""")
 
     def test_invalid_attribute_names(self):
         Table(
@@ -1008,7 +1011,7 @@ something()\"""))
             Column('def', INTEGER)
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, Integer
 from sqlalchemy.ext.declarative import declarative_base
@@ -1024,7 +1027,7 @@ class SimpleItem(Base):
     _4test = Column('4test', Integer)
     _4test1 = Column('_4test', Integer)
     _def = Column('def', Integer)
-"""
+""")
 
     def test_pascal(self):
         Table(
@@ -1032,7 +1035,7 @@ class SimpleItem(Base):
             Column('id', INTEGER, primary_key=True)
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, Integer
 from sqlalchemy.ext.declarative import declarative_base
@@ -1045,7 +1048,7 @@ class CustomerAPIPreference(Base):
     __tablename__ = 'CustomerAPIPreference'
 
     id = Column(Integer, primary_key=True)
-"""
+""")
 
     def test_underscore(self):
         Table(
@@ -1053,7 +1056,7 @@ class CustomerAPIPreference(Base):
             Column('id', INTEGER, primary_key=True)
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, Integer
 from sqlalchemy.ext.declarative import declarative_base
@@ -1066,7 +1069,7 @@ class CustomerApiPreference(Base):
     __tablename__ = 'customer_api_preference'
 
     id = Column(Integer, primary_key=True)
-"""
+""")
 
     def test_pascal_underscore(self):
         Table(
@@ -1074,7 +1077,7 @@ class CustomerApiPreference(Base):
             Column('id', INTEGER, primary_key=True)
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, Integer
 from sqlalchemy.ext.declarative import declarative_base
@@ -1087,7 +1090,7 @@ class CustomerAPIPreference(Base):
     __tablename__ = 'customer_API_Preference'
 
     id = Column(Integer, primary_key=True)
-"""
+""")
 
     def test_pascal_multiple_underscore(self):
         Table(
@@ -1095,7 +1098,7 @@ class CustomerAPIPreference(Base):
             Column('id', INTEGER, primary_key=True)
         )
 
-        assert self.generate_code() == """\
+        assert_equal(self.generate_code(), """\
 # coding: utf-8
 from sqlalchemy import Column, Integer
 from sqlalchemy.ext.declarative import declarative_base
@@ -1108,4 +1111,4 @@ class CustomerAPIPreference(Base):
     __tablename__ = 'customer_API__Preference'
 
     id = Column(Integer, primary_key=True)
-"""
+""")
