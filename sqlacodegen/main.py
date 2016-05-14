@@ -23,6 +23,7 @@ def main():
     parser.add_argument('--nojoined', action='store_true', help="don't autodetect joined table inheritance")
     parser.add_argument('--noinflect', action='store_true', help="don't try to convert tables names to singular form")
     parser.add_argument('--noclasses', action='store_true', help="don't generate classes, only tables")
+    parser.add_argument('--nosequences', action='store_true', help="don't auto-generate postgresql sequences")
     parser.add_argument('--outfile', help='file to write output to (default: stdout)')
     args = parser.parse_args()
 
@@ -40,5 +41,5 @@ def main():
     metadata.reflect(engine, args.schema, not args.noviews, tables)
     outfile = codecs.open(args.outfile, 'w', encoding='utf-8') if args.outfile else sys.stdout
     generator = CodeGenerator(metadata, args.noindexes, args.noconstraints, args.nojoined, args.noinflect,
-                              args.noclasses)
+                              args.noclasses, args.nosequences)
     generator.render(outfile)

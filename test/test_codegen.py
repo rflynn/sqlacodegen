@@ -975,6 +975,48 @@ class SimpleItem(Base):
     id = Column(Integer, primary_key=True, server_default=text("uuid_generate_v4()"))
 """)
 
+    def test___postgres_server_default_sequences(self):
+        Table(
+            'Pt', self.metadata,
+            Column('id', INTEGER, primary_key=True, server_default=text("nextval('pt_key_seq'::regclass)"))
+        )
+
+        assert_equal(self.generate_code(), """\
+# coding: utf-8
+from sqlalchemy import Column, Integer, text
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+metadata = Base.metadata
+
+
+class Pt(Base):
+    __tablename__ = 'Pt'
+
+    id = Column(Integer, primary_key=True)
+""")
+
+    def test___postgres_server_default_sequences_nosequences(self):
+        Table(
+            'Pt', self.metadata,
+            Column('id', INTEGER, primary_key=True, server_default=text("nextval('pt_key_seq'::regclass)"))
+        )
+
+        assert_equal(self.generate_code(nosequences=True), """\
+# coding: utf-8
+from sqlalchemy import Column, Integer, text
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+metadata = Base.metadata
+
+
+class Pt(Base):
+    __tablename__ = 'Pt'
+
+    id = Column(Integer, primary_key=True, server_default=text("nextval('pt_key_seq'::regclass)"))
+""")
+
     def test_server_default_multiline(self):
         Table(
             'simple_items', self.metadata,

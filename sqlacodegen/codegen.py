@@ -25,6 +25,7 @@ _re_column_name = re.compile(r'(?:(["`]?)(?:.*)\1\.)?(["`]?)(.*)\2')
 _re_enum_check_constraint = re.compile(r"(?:(?:.*?)\.)?(.*?) IN \((.+)\)")
 _re_enum_item = re.compile(r"'(.*?)(?<!\\)'")
 _re_invalid_identifier = re.compile(r'[^a-zA-Z0-9_]' if sys.version_info[0] < 3 else r'(?u)\W')
+_re_seq_nextval = re.compile(r"^nextval\('([^']*_seq)'[^)]*\)$")
 
 
 class _DummyInflectEngine(object):
@@ -106,7 +107,7 @@ class Model(object):
 
             column.type = column.type.adapt(cls)
 
-    def add_imports(self, collector):
+    def add_imports(self, collector, nosequences=False):
         if self.table.columns:
             collector.add_import(Column)
 
@@ -133,7 +134,7 @@ class Model(object):
 
 
 class ModelTable(Model):
-    def add_imports(self, collector):
+    def add_imports(self, collector, nosequences=False):
         super(ModelTable, self).add_imports(collector)
         collector.add_import(Table)
 
@@ -192,14 +193,14 @@ class ModelClass(Model):
         self.attributes[tempname] = value
         return tempname
 
-    def add_imports(self, collector):
-        super(ModelClass, self).add_imports(collector)
+    def add_imports(self, collector, nosequences=False):
+        super(ModelClass, self).add_imports(collector, nosequences=nosequences)
 
         if any(isinstance(value, Relationship) for value in self.attributes.values()):
             collector.add_literal_import('sqlalchemy.orm', 'relationship')
 
         for child in self.children:
-            child.add_imports(collector)
+            child.add_imports(collector, nosequences=nosequences)
 
 
 class Relationship(object):
@@ -288,13 +289,14 @@ class CodeGenerator(object):
 {models}"""
 
     def __init__(self, metadata, noindexes=False, noconstraints=False, nojoined=False, noinflect=False,
-                 noclasses=False, indentation='    ', model_separator='\n\n',
+                 noclasses=False, nosequences=False, indentation='    ', model_separator='\n\n',
                  ignored_tables=('alembic_version', 'migrate_version'), table_model=ModelTable, class_model=ModelClass,
                  template=None):
         super(CodeGenerator, self).__init__()
         self.metadata = metadata
         self.noindexes = noindexes
         self.noconstraints = noconstraints
+        self.nosequences = nosequences
         self.nojoined = nojoined
         self.noinflect = noinflect
         self.noclasses = noclasses
@@ -369,7 +371,7 @@ class CodeGenerator(object):
                 classes[model.name] = model
 
             self.models.append(model)
-            model.add_imports(self.collector)
+            model.add_imports(self.collector, nosequences=self.nosequences)
 
         # Nest inherited classes in their superclasses to ensure proper ordering
         for model in classes.values():
@@ -491,7 +493,10 @@ class CodeGenerator(object):
             kwarg.append('index')
         if column.server_default:
             default_expr = _get_compiled_expression(column.server_default.arg)
-            if '\n' in default_expr:
+            m = _re_seq_nextval.match(str(column.server_default.arg))
+            if m and (not self.nosequences):
+                server_default = None # remove it, sqlalchemy will generate a SERIAL for postgresql
+            elif '\n' in default_expr:
                 server_default = 'server_default=text("""\\\n{0}""")'.format(default_expr)
             else:
                 server_default = 'server_default=text("{0}")'.format(default_expr)
@@ -541,6 +546,7 @@ class CodeGenerator(object):
         return rendered.rstrip('\n,') + '\n)\n'
 
     def render_class(self, model):
+
         rendered = 'class {0}({1}):\n'.format(model.name, model.parent_name)
         rendered += '{0}__tablename__ = {1!r}\n'.format(self.indentation, model.table.name)
 
