@@ -289,7 +289,7 @@ class CodeGenerator(object):
 {models}"""
 
     def __init__(self, metadata, noindexes=False, noconstraints=False, nojoined=False, noinflect=False,
-                 noclasses=False, nosequences=False, indentation='    ', model_separator='\n\n',
+                 noclasses=False, alwaysclasses=False, nosequences=False, indentation='    ', model_separator='\n\n',
                  ignored_tables=('alembic_version', 'migrate_version'), table_model=ModelTable, class_model=ModelClass,
                  template=None):
         super(CodeGenerator, self).__init__()
@@ -300,6 +300,7 @@ class CodeGenerator(object):
         self.nojoined = nojoined
         self.noinflect = noinflect
         self.noclasses = noclasses
+        self.alwaysclasses = alwaysclasses
         self.indentation = indentation
         self.model_separator = model_separator
         self.ignored_tables = ignored_tables
@@ -366,6 +367,12 @@ class CodeGenerator(object):
             # Only form model classes for tables that have a primary key and are not association tables
             if noclasses or not table.primary_key or table.name in association_tables:
                 model = self.table_model(table)
+                if alwaysclasses:
+                    # fuck me what a hack. do both
+                    self.models.append(model)
+                    model.add_imports(self.collector, nosequences=self.nosequences)
+                    model = self.class_model(table, links[table.name], self.inflect_engine, not nojoined)
+                    classes[model.name] = model
             else:
                 model = self.class_model(table, links[table.name], self.inflect_engine, not nojoined)
                 classes[model.name] = model
@@ -548,7 +555,16 @@ class CodeGenerator(object):
     def render_class(self, model):
 
         rendered = 'class {0}({1}):\n'.format(model.name, model.parent_name)
-        rendered += '{0}__tablename__ = {1!r}\n'.format(self.indentation, model.table.name)
+        if model.table.primary_key:
+            rendered += '{0}__tablename__ = {1!r}\n'.format(self.indentation, model.table.name)
+        else:
+            # refer to earlier Table() variable
+            rendered += '{0}__table__ = t_{1}\n'.format(self.indentation, model.table.name)
+            # HACK: if we're forcing classes and have no primary key (sqlalchemy REQUIRES one, argh...) default to first column
+            rendered += "{0}__mapper_args__ = {{'primary_key': t_{1}.c.{2}}}\n".format(
+                self.indentation, model.table.name, model.attributes.items()[0][1].name)
+            # XXX: special case, don't override other shit... fuck me...
+            return rendered
 
         # Render constraints and indexes as __table_args__
         table_args = []

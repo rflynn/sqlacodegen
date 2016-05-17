@@ -1154,3 +1154,29 @@ class CustomerAPIPreference(Base):
 
     id = Column(Integer, primary_key=True)
 """)
+
+    def test___alwaysclasses_no_primary_key(self):
+        Table(
+            'cclf_clmhdr_fa', self.metadata,
+            Column('id', INTEGER)
+        )
+
+        assert_equal(self.generate_code(alwaysclasses=True), """\
+# coding: utf-8
+from sqlalchemy import Column, Integer, Table
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+metadata = Base.metadata
+
+
+t_cclf_clmhdr_fa = Table(
+    'cclf_clmhdr_fa', metadata,
+    Column('id', Integer)
+)
+
+
+class CclfClmhdrFa(Base):
+    __table__ = t_cclf_clmhdr_fa
+    __mapper_args__ = {'primary_key': t_cclf_clmhdr_fa.c.id}
+""")
