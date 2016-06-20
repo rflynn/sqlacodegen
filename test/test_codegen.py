@@ -1180,3 +1180,23 @@ class CclfClmhdrFa(Base):
     __table__ = t_cclf_clmhdr_fa
     __mapper_args__ = {'primary_key': t_cclf_clmhdr_fa.c.id}
 """)
+
+
+    def test___column_name_carriage_return(self):
+        Table(
+            'tblname', self.metadata,
+            Column("Carriage\rReturn", INTEGER)
+        )
+
+        assert_equal(self.generate_code(), """\
+# coding: utf-8
+from sqlalchemy import Column, Integer, MetaData, Table
+
+metadata = MetaData()
+
+
+t_tblname = Table(
+    'tblname', metadata,
+    Column('''Carriage\rReturn''', Integer)
+)
+""")

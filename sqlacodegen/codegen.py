@@ -473,6 +473,13 @@ class CodeGenerator(object):
             extra_args.append('unique=True')
         return 'Index({0!r}, {1})'.format(index.name, ', '.join(extra_args))
 
+    @staticmethod
+    def repr_column_name(name):
+        '''represent sql column names in a way compatible with python string syntax'''
+        if '\r' in name or '\n' in name:
+            return "'''" + repr(name)[1:-1] + "'''"
+        return repr(name)
+
     def render_column(self, column, show_name):
         kwarg = []
         is_sole_pk = column.primary_key and len(column.table.primary_key) == 1
@@ -509,7 +516,7 @@ class CodeGenerator(object):
                 server_default = 'server_default=text("{0}")'.format(default_expr)
 
         return 'Column({0})'.format(', '.join(
-            ([repr(column.name)] if show_name else []) +
+            ([CodeGenerator.repr_column_name(column.name)] if show_name else []) +
             ([self.render_column_type(column.type)] if render_coltype else []) +
             [self.render_constraint(x) for x in dedicated_fks] +
             [repr(x) for x in column.constraints] +
